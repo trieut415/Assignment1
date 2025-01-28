@@ -1,5 +1,6 @@
 import math
 import pandas as pd
+import argparse
 
 def haversine(lat1, lon1, lat2, lon2):
     """
@@ -125,14 +126,18 @@ def find_closest_points(array1, array2):
     
     return nearest_neighbors
 
-# Main program loop
-while True:
-    print("\nDo you want to upload a CSV file for coordinates?")
-    mode = input("Enter 'csv' to upload a CSV file or 'exit' to quit: ").strip().lower()
+import argparse
 
-    if mode == 'csv':
-        file1 = input("\nEnter the file path for the first array (.csv): ").strip()
-        file2 = input("Enter the file path for the second array (.csv): ").strip()
+def main():
+    parser = argparse.ArgumentParser(description="Process CSV files for coordinates.")
+    parser.add_argument("--csv1", help="Path to the first CSV file")
+    parser.add_argument("--csv2", help="Path to the second CSV file")
+    args = parser.parse_args()
+
+    # If CSV file paths are provided as arguments
+    if args.csv1 and args.csv2:
+        file1 = args.csv1
+        file2 = args.csv2
 
         array1 = parse_csv(file1)
         array2 = parse_csv(file2)
@@ -145,8 +150,33 @@ while True:
                       f"with Distance: {match['distance_km']} km")
         else:
             print("Both arrays must contain at least one valid point.")
-    elif mode == 'exit':
-        print("Exiting the program. Goodbye!")
-        break
+
+    # If no arguments are provided, fall back to interactive mode
     else:
-        print("Invalid input. Please enter 'csv' or 'exit'.")
+        while True:
+            print("\nDo you want to upload a CSV file for coordinates?")
+            mode = input("Enter 'csv' to upload a CSV file or 'exit' to quit: ").strip().lower()
+
+            if mode == 'csv':
+                file1 = input("\nEnter the file path for the first array (.csv): ").strip()
+                file2 = input("Enter the file path for the second array (.csv): ").strip()
+
+                array1 = parse_csv(file1)
+                array2 = parse_csv(file2)
+
+                if array1 and array2:
+                    matches = find_closest_points(array1, array2)
+                    print("\nClosest matches:")
+                    for match in matches:
+                        print(f"From Array 1: {match['point_from_array1']} -> Closest in Array 2: {match['nearest_point_in_array2']} "
+                              f"with Distance: {match['distance_km']} km")
+                else:
+                    print("Both arrays must contain at least one valid point.")
+            elif mode == 'exit':
+                print("Exiting the program. Goodbye!")
+                break
+            else:
+                print("Invalid input. Please enter 'csv' or 'exit'.")
+
+if __name__ == "__main__":
+    main()
