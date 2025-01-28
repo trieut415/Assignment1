@@ -126,8 +126,6 @@ def find_closest_points(array1, array2):
     
     return nearest_neighbors
 
-import argparse
-
 def main():
     parser = argparse.ArgumentParser(description="Process CSV files for coordinates.")
     parser.add_argument("--csv1", help="Path to the first CSV file")
