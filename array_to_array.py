@@ -1,4 +1,5 @@
 import math
+import pandas as pd
 
 def haversine(lat1, lon1, lat2, lon2):
     """
@@ -20,50 +21,67 @@ def haversine(lat1, lon1, lat2, lon2):
     
     return earth_radius * c
 
-def dms_to_decimal(degrees, minutes=0, seconds=0):
+def dms_to_decimal(dms):
     """
-    Converts degrees, minutes, and seconds (DMS) to decimal degrees.
-    """
-    decimal = abs(degrees) + minutes / 60 + seconds / 3600
-    return -decimal if degrees < 0 else decimal
-
-def parse_coordinate(entry):
-    """
-    Parses a coordinate string in either decimal degrees or DMS format.
-    Args:
-    - entry: A string representing a coordinate.
-    
-    Returns:
-    - A tuple (latitude, longitude) in decimal degrees, or None if invalid.
+    Converts a DMS (degrees, minutes, seconds) string to decimal degrees.
+    Example: '27 29 44.09 S' -> -27.49558
     """
     try:
-        entry = entry.strip()
-        if "," not in entry:
-            raise ValueError("Invalid format: No comma found in input.")
-
-        lat, lon = entry.split(",")
-
-        # Handle DMS input (e.g., "40°44'55", -73°59'11")
-        def parse_single(coord):
-            if "°" in coord:
-                parts = coord.replace("°", " ").replace("'", " ").replace('"', "").split()
-                degrees, minutes, seconds = map(float, parts + [0] * (3 - len(parts)))  # Fill missing values with 0
-                return dms_to_decimal(degrees, minutes, seconds)
-            else:
-                # Assume it's in decimal degrees
-                return float(coord)
-
-        lat = parse_single(lat)
-        lon = parse_single(lon)
-
-        if is_valid_coordinate((lat, lon)):
-            return (lat, lon)
-        else:
-            print(f"Invalid coordinate range: ({lat}, {lon}). Latitude must be between -90 and 90, and longitude between -180 and 180.")
-            return None
+        parts = dms.strip().split()
+        degrees = float(parts[0])
+        minutes = float(parts[1])
+        seconds = float(parts[2])
+        direction = parts[3]
+        decimal = degrees + (minutes / 60) + (seconds / 3600)
+        if direction in ['S', 'W']:
+            decimal = -decimal
+        return decimal
     except Exception as e:
-        print(f"Invalid input: '{entry}'. Please enter coordinates in decimal degrees (e.g., '40.748817,-73.985428') or DMS (e.g., '40°44'55, -73°59'11').")
+        print(f"Error converting DMS to decimal: {e}")
         return None
+
+def parse_csv(file_path):
+    """
+    Parses the CSV file and extracts latitude and longitude columns.
+    Handles DMS and decimal degrees formats.
+    """
+    try:
+        # Read the CSV file
+        data = pd.read_csv(file_path)
+
+        print("\nAvailable columns in the dataset:")
+        print(data.columns)
+
+        # Let the user choose columns for latitude and longitude
+        lat_column = input("\nEnter the column name for Latitude (e.g., 'Latitude' or 'GPS Lat'): ").strip()
+        lon_column = input("Enter the column name for Longitude (e.g., 'Longitude' or 'GPS Long'): ").strip()
+
+        if lat_column not in data.columns or lon_column not in data.columns:
+            print("Invalid column names. Please ensure you entered correct column names.")
+            return []
+
+        coordinates = []
+
+        for index, row in data.iterrows():
+            lat = row[lat_column]
+            lon = row[lon_column]
+
+            # Convert DMS to decimal degrees if necessary
+            if isinstance(lat, str) and isinstance(lon, str):
+                lat = dms_to_decimal(lat)
+                lon = dms_to_decimal(lon)
+
+            # Validate and append
+            if is_valid_coordinate((lat, lon)):
+                coordinates.append((lat, lon))
+            else:
+                print(f"Skipping invalid row {index + 1}: ({lat}, {lon})")
+
+        return coordinates
+
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+        return []
 
 def is_valid_coordinate(coord):
     """
@@ -78,28 +96,6 @@ def is_valid_coordinate(coord):
         return False
     lat, lon = coord
     return -90 <= lat <= 90 and -180 <= lon <= 180
-
-def get_coordinates_input(prompt):
-    """
-    Gets a list of coordinates from the user.
-    Args:
-    - prompt: Instruction for the user.
-    
-    Returns:
-    - List of tuples with valid latitude and longitude.
-    """
-    print(prompt)
-    coordinates = []
-    while True:
-        entry = input("Enter coordinates as 'latitude,longitude' (decimal degrees or DMS) or press Enter to finish: ")
-        if not entry:
-            break
-        coord = parse_coordinate(entry)
-        if coord in coordinates:
-            print("Duplicate coordinate added, input not added.")
-        if coord:
-            coordinates.append(coord)
-    return coordinates
 
 def find_closest_points(array1, array2):
     """
@@ -131,29 +127,26 @@ def find_closest_points(array1, array2):
 
 # Main program loop
 while True:
-    print("\nEnter points for the first array:")
-    array1 = get_coordinates_input("Input points for Array 1 (e.g., 40.748817,-73.985428 or 40°44'55, -73°59'11):")
+    print("\nDo you want to upload a CSV file for coordinates?")
+    mode = input("Enter 'csv' to upload a CSV file or 'exit' to quit: ").strip().lower()
 
-    print("\nEnter points for the second array:")
-    array2 = get_coordinates_input("Input points for Array 2 (e.g., 37.774929,-122.419416 or 37°46'30, -122°25'10):")
+    if mode == 'csv':
+        file1 = input("\nEnter the file path for the first array (.csv): ").strip()
+        file2 = input("Enter the file path for the second array (.csv): ").strip()
 
-    if array1 and array2:
-        matches = find_closest_points(array1, array2)
-        print("\nClosest matches:")
-        for match in matches:
-            print(f"From Array 1: {match['point_from_array1']} -> Closest in Array 2: {match['nearest_point_in_array2']} "
-                  f"with Distance: {match['distance_km']} km")
-    else:
-        print("Both arrays must contain at least one valid point.")
-            
-    while True:
-        # Ask the user if they want to process another pair of arrays
-        again = input("\nDo you want to process another pair of arrays? (yes/no): ").strip().lower()
-        
-        if again == 'no':
-            print("Exiting the program. Goodbye!")
-            exit()
-        elif again == 'yes':
-            break
+        array1 = parse_csv(file1)
+        array2 = parse_csv(file2)
+
+        if array1 and array2:
+            matches = find_closest_points(array1, array2)
+            print("\nClosest matches:")
+            for match in matches:
+                print(f"From Array 1: {match['point_from_array1']} -> Closest in Array 2: {match['nearest_point_in_array2']} "
+                      f"with Distance: {match['distance_km']} km")
         else:
-            print("Invalid input, please input one of the options: yes/no.")
+            print("Both arrays must contain at least one valid point.")
+    elif mode == 'exit':
+        print("Exiting the program. Goodbye!")
+        break
+    else:
+        print("Invalid input. Please enter 'csv' or 'exit'.")
